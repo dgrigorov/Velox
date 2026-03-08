@@ -1,0 +1,24 @@
+{
+  "name": "velox",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,portal -c cyan,magenta \"npm run dev -w apps/api\" \"npm run dev -w apps/portal\"",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:portal": "npm run dev -w apps/portal",
+    "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w packages/types",
+    "build": "npm run build -w packages/types && npm run build -w apps/api",
+    "lint": "eslint apps packages --ext .ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3",
+    "eslint": "^9.21.0",
+    "@typescript-eslint/eslint-plugin": "^8.25.0",
+    "@typescript-eslint/parser": "^8.25.0"
+  }
+}
