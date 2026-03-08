@@ -16,7 +16,9 @@
     "@fastify/rate-limit": "^10.2.2",
     "@fastify/websocket": "^11.0.2",
     "@fastify/swagger": "^9.4.0",
-    "@scalar/fastify-api-reference": "^1.25.72",
+    "@fastify/swagger-ui": "^5.2.2",
+    "fastify-plugin": "^5.0.1",
+    "rss-parser": "^3.13.0",
     "@unkey/api": "^0.35.5",
     "@anthropic-ai/sdk": "^0.39.0",
     "zod": "^3.24.2",
@@ -30,6 +32,7 @@
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "@types/node": "^22.13.9",
-    "@types/ws": "^8.5.14"
+    "@types/ws": "^8.5.14",
+    "@types/rss-parser": "^3.13.0"
   }
 }
