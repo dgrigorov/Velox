@@ -7,11 +7,12 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n api,portal -c cyan,magenta \"npm run dev -w apps/api\" \"npm run dev -w apps/portal\"",
+    "dev": "concurrently -n api,demo -c cyan,magenta \"npm run dev -w apps/api\" \"npm run dev -w apps/demo\"",
     "dev:api": "npm run dev -w apps/api",
+    "dev:demo": "npm run dev -w apps/demo",
     "dev:portal": "npm run dev -w apps/portal",
-    "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w packages/types",
-    "build": "npm run build -w packages/types && npm run build -w apps/api",
+    "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w packages/economic-calendar && npm run typecheck -w packages/market-buzz && npm run typecheck -w packages/types",
+    "build": "npm run build -w packages/types && npm run build -w apps/api && npm run build -w packages/economic-calendar && npm run build -w packages/market-buzz",
     "lint": "eslint apps packages --ext .ts"
   },
   "devDependencies": {
