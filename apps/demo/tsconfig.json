@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "paths": {
+      "@velox/core": ["../../packages/core/src/index.ts"],
+      "@velox/economic-calendar": ["../../packages/economic-calendar/src/index.ts"],
+      "@velox/market-buzz": ["../../packages/market-buzz/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
