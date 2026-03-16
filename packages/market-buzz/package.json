@@ -1,0 +1,30 @@
+{
+  "name": "@velox/market-buzz",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "build:standalone": "vite build --config vite.config.standalone.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@velox/core": "*",
+    "d3": "^7.9.0",
+    "lit": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.0"
+  },
+  "files": [
+    "src",
+    "dist"
+  ]
+}
