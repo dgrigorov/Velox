@@ -13,34 +13,44 @@ declare module 'fastify' {
 
 const unkey = new Unkey({ rootKey: env.UNKEY_ROOT_KEY })
 
+// Routes that skip auth entirely
+const PUBLIC_PREFIXES = ['/', '/health', '/docs', '/openapi.json', '/widget/']
+
 const authPlugin: FastifyPluginAsync = async (fastify) => {
-  fastify.decorateRequest('velox', null)
+  // Initialize with a placeholder — will be overwritten in the hook
+  fastify.decorateRequest('velox', {
+    getter() {
+      return { keyId: '', ownerId: '', plan: 'free' as Plan }
+    },
+  })
 
   fastify.addHook('onRequest', async (request: FastifyRequest, reply) => {
-    // Skip health + docs
-    const skip = ['/', '/health', '/docs', '/openapi.json']
-    if (skip.some((p) => request.url.startsWith(p))) return
+    if (PUBLIC_PREFIXES.some((p) => request.url === p || request.url.startsWith(p))) return
 
     const header = request.headers['authorization']
     const apiKey = header?.startsWith('Bearer ') ? header.slice(7) : header
 
-    if (!apiKey) {
-      return sendError(reply, Errors.unauthorized())
+    if (!apiKey) return sendError(reply, Errors.unauthorized())
+
+    // ── Dev keys: bypass Unkey for local development ──────────────────────────
+    if (apiKey.startsWith('vx_dev_')) {
+      request.velox = { keyId: 'dev', ownerId: 'dev', plan: 'business' }
+      return
     }
 
-    const { result, error } = await unkey.keys.verify({
-      apiId: env.UNKEY_API_ID,
-      key: apiKey,
-    })
+    // ── Production: validate via Unkey ────────────────────────────────────────
+    try {
+      const res = await unkey.keys.verifyKey({ key: apiKey })
 
-    if (error || !result?.valid) {
+      if (!res.data.valid) return sendError(reply, Errors.unauthorized())
+
+      request.velox = {
+        keyId:   res.data.keyId   ?? apiKey,
+        ownerId: res.data.identity?.externalId ?? 'unknown',
+        plan:    (res.data.meta?.['plan'] as Plan | undefined) ?? 'free',
+      }
+    } catch {
       return sendError(reply, Errors.unauthorized())
-    }
-
-    request.velox = {
-      keyId: result.keyId,
-      ownerId: result.ownerId ?? 'anonymous',
-      plan: (result.meta?.['plan'] as Plan | undefined) ?? 'free',
     }
   })
 }

@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { env } from '../types/env.js'
 import { redis } from '../cache/index.js'
-import type { RawArticle } from './news.js'
+import type { RawArticle, ArticleSource } from './news.js'
 import type { UniverseItem } from '../data/universe.js'
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
@@ -28,14 +28,21 @@ export interface MarketBuzzItem {
   ticker: string
   name: string
   assetClass: 'stock' | 'crypto'
-  sentimentScore: number          // -100 to +100
+  sentimentScore: number          // -100 to +100 (time-weighted net ratio)
   sentimentSignal: 'bullish' | 'bearish' | 'neutral'
   mentionCount: number
+  // Source breakdown for UI
+  sources: {
+    news: number     // FMP + RSS
+    social: number   // Reddit
+    gnews: number    // Google News (per-ticker)
+  }
   articles: Array<{
     id: string
     title: string
     url: string
     source: string
+    sourceType: ArticleSource
     publishedAt: string
     sentiment: 'positive' | 'neutral' | 'negative'
     oneLiner: string
@@ -131,10 +138,36 @@ Return ONLY a JSON array with ${batch.length} objects in the same order:
 
 // ─── Score aggregation per ticker ────────────────────────────────────────────
 
-const SENTIMENT_SCORE: Record<ArticleSentiment['sentiment'], number> = {
-  positive: 1,
-  neutral:  0,
-  negative: -1,
+/**
+ * Time-weighted net sentiment — matches Trading Central's approach.
+ *
+ * Formula: (weightedPositive - weightedNegative) / (weightedPositive + weightedNegative) × 100
+ *
+ * - Neutral articles don't dilute the score (only pos/neg count in denominator)
+ * - Exponential time decay: articles from 12h ago have half the weight of fresh ones
+ * - Result: clean -100…+100 signal reflecting directional conviction
+ */
+const DECAY_HOURS = 12  // half-life for recency weighting
+
+function computeScore(
+  articles: RawArticle[],
+  sentimentMap: Map<string, ArticleSentiment>,
+): number {
+  let weightedPos = 0
+  let weightedNeg = 0
+
+  for (const article of articles) {
+    const ageHours = (Date.now() - new Date(article.publishedAt).getTime()) / 3_600_000
+    const weight   = Math.exp(-ageHours / DECAY_HOURS)
+    const s        = sentimentMap.get(article.id)?.sentiment ?? 'neutral'
+
+    if (s === 'positive') weightedPos += weight
+    if (s === 'negative') weightedNeg += weight
+  }
+
+  const denom = weightedPos + weightedNeg
+  if (denom === 0) return 0
+  return Math.round((weightedPos - weightedNeg) / denom * 100)
 }
 
 function signalFromScore(score: number): MarketBuzzItem['sentimentSignal'] {
@@ -165,49 +198,54 @@ export async function buildMarketBuzz(
   const results: MarketBuzzItem[] = []
 
   for (const item of universe) {
-    // Match articles to this ticker (stocks: exact match; crypto: strip USD suffix)
-    const tickerKey = item.assetClass === 'crypto'
-      ? item.ticker.replace('USD', '')
-      : item.ticker
+    // Crypto tickers stored as BTCUSD but articles tagged as BTC; try both
+    const primaryKey  = item.ticker
+    const shortKey    = item.ticker.replace('USD', '')
+    const itemArticles = [
+      ...(tickerArticles.get(primaryKey) ?? []),
+      ...(tickerArticles.get(shortKey)   ?? []),
+    ].filter((a, i, arr) => arr.findIndex(b => b.id === a.id) === i)  // dedup
 
-    const itemArticles = tickerArticles.get(tickerKey) ?? []
-    if (itemArticles.length === 0) continue
+      // Source breakdown
+    const sources = { news: 0, social: 0, gnews: 0 }
+    for (const a of itemArticles) {
+      if (a.sourceType === 'gnews')               sources.gnews++
+      else if (a.sourceType === 'reddit')         sources.social++
+      else                                        sources.news++
+    }
 
-    // Compute sentiment score
-    let scoreSum = 0
-    const enrichedArticles = []
-
-    for (const article of itemArticles.slice(0, 10)) {
+    // Enrich with sentiment (max 15 per ticker shown in UI)
+    const enrichedArticles = itemArticles.slice(0, 15).map((article) => {
       const s = sentimentMap.get(article.id) ?? { sentiment: 'neutral' as const, oneLiner: '' }
-      scoreSum += SENTIMENT_SCORE[s.sentiment]
-      enrichedArticles.push({
+      return {
         id:          article.id,
         title:       article.title,
         url:         article.url,
         source:      article.source,
+        sourceType:  article.sourceType,
         publishedAt: article.publishedAt,
         sentiment:   s.sentiment,
         oneLiner:    s.oneLiner,
-      })
-    }
+      }
+    })
 
-    // Normalize to -100…+100
-    const rawScore     = itemArticles.length > 0 ? scoreSum / itemArticles.length : 0
-    const sentimentScore = Math.round(rawScore * 100)
+    // Time-weighted net sentiment score
+    const sentimentScore    = computeScore(itemArticles, sentimentMap)
 
     results.push({
-      ticker:         item.ticker,
-      name:           item.name,
-      assetClass:     item.assetClass,
+      ticker:          item.ticker,
+      name:            item.name,
+      assetClass:      item.assetClass,
       sentimentScore,
       sentimentSignal: signalFromScore(sentimentScore),
-      mentionCount:   itemArticles.length,
-      articles:       enrichedArticles,
-      updatedAt:      now,
+      mentionCount:    itemArticles.length,
+      sources,
+      articles:        enrichedArticles,
+      updatedAt:       now,
     })
   }
 
-  // Sort by mention count descending (most talked about first)
+  // Sort: items with mentions first (by count desc), then zero-mention items
   results.sort((a, b) => b.mentionCount - a.mentionCount)
 
   return results

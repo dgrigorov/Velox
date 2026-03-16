@@ -115,20 +115,17 @@ async function handleMessage(client: VeloxClient, raw: string): Promise<void> {
 }
 
 async function handleAuth(client: VeloxClient, key: string): Promise<void> {
-  const { result, error } = await unkey.keys.verify({
-    apiId: env.UNKEY_API_ID,
-    key,
-  })
+  const res = await unkey.keys.verifyKey({ key }).catch(() => null)
 
-  if (error || !result?.valid) {
+  if (!res?.data.valid) {
     send(client.ws, { type: 'auth_error', message: 'Invalid API key' })
     client.ws.close(4001, 'Unauthorized')
     return
   }
 
   client.authenticated = true
-  client.plan = (result.meta?.['plan'] as Plan | undefined) ?? 'free'
-  client.keyId = result.keyId
+  client.plan = (res.data.meta?.['plan'] as Plan | undefined) ?? 'free'
+  client.keyId = res.data.keyId ?? key
 
   if (PLAN_LIMITS[client.plan].reqPerDay === 0 || client.plan === 'free' || client.plan === 'starter') {
     send(client.ws, { type: 'auth_error', message: `WebSocket requires Pro plan or higher. Current plan: ${client.plan}` })

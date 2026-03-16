@@ -4,9 +4,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(4000),
 
-  // massive.com
-  MASSIVE_API_KEY: z.string().min(1),
-  MASSIVE_WS_URL: z.string().url().default('wss://socket.polygon.io'), // replace with massive WS URL
+  // massive.com (optional until you sign up for a paid plan)
+  MASSIVE_API_KEY: z.string().default(''),
+  MASSIVE_WS_URL: z.string().default('wss://socket.massive.com'),
 
   // FMP
   FMP_API_KEY: z.string().min(1),
@@ -16,7 +16,6 @@ const envSchema = z.object({
 
   // Unkey — API key management
   UNKEY_ROOT_KEY: z.string().min(1),
-  UNKEY_API_ID: z.string().min(1),
 
   // Redis (Upstash or self-hosted)
   REDIS_URL: z.string().url(),

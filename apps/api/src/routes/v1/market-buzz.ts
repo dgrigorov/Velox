@@ -104,7 +104,8 @@ const marketBuzzRoutes: FastifyPluginAsync = async (fastify) => {
       const item = items.find((i) => i.ticker === ticker)
       if (!item) return sendError(reply, Errors.notFound(ticker))
 
-      return reply.send({ updatedAt, ...item })
+      const { updatedAt: _itemTs, ...rest } = item
+      return reply.send({ updatedAt: updatedAt ?? _itemTs, ...rest })
     },
   )
 

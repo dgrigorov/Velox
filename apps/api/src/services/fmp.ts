@@ -193,6 +193,19 @@ export async function getTreasuryRates() {
   return fmpFetch<unknown[]>('/v4/treasury')
 }
 
-export async function getEconomicCalendar(from: string, to: string) {
-  return fmpFetch<unknown[]>(`/v3/economic_calendar`, { from, to })
+export interface FmpEventRaw {
+  event: string
+  date: string
+  country: string
+  actual: number | null
+  previous: number | null
+  estimate: number | null
+  impact: string
+  currency: string
+  unit: string
+}
+
+export async function getEconomicCalendar(from: string, to: string): Promise<FmpEventRaw[]> {
+  const data = await fmpFetch<FmpEventRaw[]>(`/v3/economic_calendar`, { from, to })
+  return Array.isArray(data) ? data : []
 }
